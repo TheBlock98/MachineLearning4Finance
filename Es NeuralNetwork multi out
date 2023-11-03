@@ -1,0 +1,94 @@
+from PIL import Image
+import torch
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+import torch.nn as nn
+import torch.optim as optim
+
+# Definizione della classe del dataset
+class OmniglotDataset(Dataset):
+    def __init__(self, transform, samples):
+        self.transform = transform
+        self.samples = samples
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        img_path, alphabet, label = self.samples[idx]
+        img = Image.open(img_path).convert('L')
+        img = self.transform(img)
+        return img, alphabet, label
+
+# Esempio di come inizializzare samples
+samples = [("path1.png", "alphabet1", 0), ("path2.png", "alphabet2", 1)]
+
+# Creazione del dataset di addestramento
+dataset_train = OmniglotDataset(
+    transform=transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((64, 64)),
+    ]),
+    samples=samples,
+)
+
+# Creazione del dataloader di addestramento
+dataloader_train = DataLoader(
+    dataset_train, shuffle=True, batch_size=32,
+)
+
+# Definizione della rete neurale
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init()
+        self.image_layer = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, padding=1),
+            nn.MaxPool2d(kernel_size=2),
+            nn.ELU(),
+            nn.Flatten(),
+            nn.Linear(16*32*32, 128)
+        )
+        # Definizione dei due classificatori
+        self.classifier_alpha = nn.Linear(128, 30)
+        self.classifier_char = nn.Linear(128, 964)
+
+    def forward(self, x):
+        x_image = self.image_layer(x)
+        # Passaggio di x_image attraverso i classificatori e restituzione di entrambi i risultati
+        output_alpha = self.classifier_alpha(x_image)
+        output_char = self.classifier_char(x_image)
+        return output_alpha, output_char
+
+net = Net()
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(net.parameters(), lr=0.05)
+
+# Eseguo l'addestramento per un solo epoch
+for epoch in range(1):
+    for images, labels_alpha, labels_char in dataloader_train:
+        optimizer.zero_grad()
+        outputs_alpha, outputs_char = net(images)
+        loss_alpha = criterion(outputs_alpha, labels_alpha)
+        loss_char = criterion(outputs_char, labels_char)
+        loss = loss_alpha + loss_char
+        loss.backward()
+        optimizer.step()
+
+def evaluate_model(model):
+    # Define accuracy metrics
+    acc_alpha = Accuracy(task="multiclass", num_classes=30)
+    acc_char = Accuracy(task="multiclass", num_classes=964)
+
+    model.eval()
+    with torch.no_grad():
+        for images, labels_alpha, labels_char in dataloader_test:
+            # Obtain model outputs
+            outputs_alpha, outputs_char = model(images)
+            _, pred_alpha = torch.max(outputs_alpha, 1)
+            _, pred_char = torch.max(outputs_char, 1)
+			# Update both accuracy metrics
+            acc_alpha(pred_alpha, labels_alpha)
+            acc_char(pred_char, labels_char)
+    
+    print(f"Alphabet: {acc_alpha.compute()}")
+    print(f"Character: {acc_char.compute()}")
