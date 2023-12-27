@@ -1,0 +1,83 @@
+""" 
+Question 2
+
+Swap Rates
+
+Suppose a 6-year swap with a notional principal of $10 million is being configured. What is the fixed rate of interest that will make the value of the swap equal to zero?
+
+"""
+
+# Given term structure of interest rates for annual compounding
+term_structure = {
+    1: 7.0,
+    2: 7.3,
+    3: 7.7,
+    4: 8.1,
+    5: 8.4,
+    6: 8.8
+}
+
+
+notional_principal = 10_000_000  # $10 million
+
+# Calculate the present value of a fixed leg for each year
+fixed_leg_pv = sum([notional_principal / ((1 + term_structure[i] / 100)**i) for i in term_structure])
+
+# Assuming the notional principal is returned at the end of the swap
+floating_leg_pv = notional_principal
+
+
+from scipy.optimize import fsolve
+
+# Function to compute the difference of PVs given a fixed rate
+def fixed_rate_difference(fixed_rate):
+    fixed_leg_pv = sum([notional_principal * (fixed_rate / 100) / ((1 + term_structure[i] / 100)**i) for i in term_structure])
+    fixed_leg_pv += notional_principal / ((1 + term_structure[len(term_structure)] / 100)**len(term_structure))
+    return fixed_leg_pv - floating_leg_pv
+
+# Initial guess for fixed rate (can be more analyzed based on given data or industry averages)
+initial_guess = 5.0
+
+# Find the fixed rate that makes the PV of fixed leg equal to the PV of floating leg
+fixed_rate = fsolve(fixed_rate_difference, initial_guess)[0]
+
+print(f"The fixed rate that makes the value of the swap equal to zero: {fixed_rate:.2f}%")
+
+"""
+
+In uno swap sui tassi di interesse, due parti scambiano flussi di cassa basati su un importo nominale. Una gamba dello swap coinvolge tipicamente pagamenti a tasso fisso, mentre l'altra gamba coinvolge pagamenti a tasso variabile. Il tasso fisso è determinato in modo tale che il valore presente dei pagamenti a tasso fisso sia uguale al valore presente dei pagamenti a tasso variabile, rendendo il valore complessivo dello swap pari a zero.
+
+Ecco come viene effettuato il calcolo:
+
+1. **Valore Presente della Gamba a Tasso Fisso (fixed_leg_pv):**
+   - Per ogni anno, calcola il pagamento a tasso fisso utilizzando il tasso fisso dalla struttura dei tassi di interesse.
+   - Sconta ciascun pagamento al suo valore presente utilizzando il fattore di sconto corrispondente.
+   - Somma tutti i valori presenti dei pagamenti a tasso fisso.
+
+ 
+
+2. **Valore Presente della Gamba a Tasso Variabile (floating_leg_pv):**
+   - Il valore presente della gamba a tasso variabile è essenzialmente il valore presente dell'importo nominale, assumendo che venga restituito alla fine dello swap.
+
+
+
+3. **Obiettivo:**
+   - Imposta il valore presente della gamba a tasso fisso uguale al valore presente della gamba a tasso variabile.
+
+   
+
+   Ciò crea un'equazione in cui l'incognita è il tasso fisso.
+
+4. **Ricerca della Radice:**
+   - Il problema diventa un problema di ricerca della radice, e possiamo utilizzare metodi numerici per trovare la radice dell'equazione.
+   - Qui, il metodo `fsolve` dalla libreria `scipy.optimize` viene utilizzato per trovare il tasso fisso che soddisfa l'equazione.
+
+
+
+5. **Risultato:**
+   - Il tasso fisso risultante è il tasso che rende il valore presente della gamba a tasso fisso uguale al valore presente della gamba a tasso variabile, e quindi, il valore complessivo dello swap è zero.
+
+In sintesi, il calcolo assicura che le due gambe dello swap abbiano lo stesso valore presente, rendendo il valore complessivo dello swap zero all'inizio.
+
+
+"""
